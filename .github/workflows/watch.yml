@@ -1,0 +1,35 @@
+name: OVH VPS stock watch
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Send a test push"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: watch
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test push
+        if: ${{ inputs.test }}
+        run: curl -s -H "Title: OVH VPS watcher (GitHub) - test" -H "Tags: white_check_mark" -d "Test from GitHub Actions: phone notifications work" "https://ntfy.sh/${{ secrets.NTFY_TOPIC }}"
+      - name: Check stock
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: ./watch.sh
+      - name: Save state
+        run: |
+          if [ -n "$(git status --porcelain state)" ]; then
+            git config user.name "stock-watch-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add state && git commit -m "Update stock state" && git push
+          fi
